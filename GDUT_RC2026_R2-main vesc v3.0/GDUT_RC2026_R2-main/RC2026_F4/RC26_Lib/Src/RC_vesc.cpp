@@ -5,7 +5,7 @@ namespace vesc
     void Vesc::Set_Rpm(float target_rpm_)
     {
         vesc_motor_mode = vesc_erpm;
-        target_rpm = target_rpm_*gear_ratio*motor_polse;// 计算ERPM
+        target_rpm = target_rpm_;// 计算ERPM
     }
     void Vesc::Set_Current(float target_c_)
 	{
@@ -90,11 +90,14 @@ namespace vesc
         if (vesc_motor_mode == vesc_erpm)// 速度模式
         {
             temp_target_rpm = target_rpm;
+			pid_spd.Update_Target(temp_target_rpm);
+			pid_spd.Update_Real(rpm);
         }
        
-        pid_spd.Update_Target(temp_target_rpm);
-        pid_spd.Update_Real(rpm);
-        target_current = pid_spd.Pid_Calculate();
+        else if(vesc_motor_mode == vesc_current)
+		{
+			target_current = pid_spd.Pid_Calculate();
+		}
     }
     
     
@@ -105,19 +108,29 @@ namespace vesc
         switch (vesc_motor_mode)
         {
         case vesc_current:
+			tx_id = (SET_CURRENT_CMD<<8) | id;
             send_current = (int32_t)(target_current);
             can->tx_frame_list[tx_frame_dx].data[0] = send_current >> 24 & 0xFF;// 高8位
             can->tx_frame_list[tx_frame_dx].data[1] = send_current >> 16 & 0xFF;
             can->tx_frame_list[tx_frame_dx].data[2] = send_current >> 8 & 0xFF;
             can->tx_frame_list[tx_frame_dx].data[3] = send_current & 0xFF;
+			for (uint8_t i = 4; i < 8; i++) 
+			{
+				can->tx_frame_list[tx_frame_dx].data[i] = 0;
+			}
             can->tx_frame_list[tx_frame_dx].dlc = 8; // 数据长度8字节 
             break;
         case vesc_erpm:
+			tx_id = (SET_ERPM_CMD<<8) | id;
             send_rpm = (int32_t)(target_rpm);
             can->tx_frame_list[tx_frame_dx].data[0] = send_rpm >> 24 & 0xFF;// 高8位
             can->tx_frame_list[tx_frame_dx].data[1] = send_rpm >> 16 & 0xFF;
             can->tx_frame_list[tx_frame_dx].data[2] = send_rpm >> 8 & 0xFF;
             can->tx_frame_list[tx_frame_dx].data[3] = send_rpm & 0xFF;
+			for (uint8_t i = 4; i < 8; i++) 
+			{
+				can->tx_frame_list[tx_frame_dx].data[i] = 0;
+			}
             can->tx_frame_list[tx_frame_dx].dlc = 8; // 数据长度8字节 
             break;
         default:
@@ -129,11 +142,11 @@ namespace vesc
     void Vesc::Can_Rx_It_Process(uint8_t *rx_data)
     
     {
-        int16_t current = ((int16_t)((rx_data[4] << 8) | rx_data[5])*0.1);
+        current = ((int16_t)((rx_data[4] << 8) | rx_data[5])*0.1);
 
-    int32_t erpm = (int32_t)((rx_data[0] << 24) | (rx_data[1] << 16) | (rx_data[2] << 8) | rx_data[3]);
+        rpm = (int32_t)((rx_data[0] << 24) | (rx_data[1] << 16) | (rx_data[2] << 8) | rx_data[3]);
 
-    
+
 	}
 }
 	
