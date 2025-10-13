@@ -15,7 +15,7 @@ can::Can can2(hcan2);
 //m3508::M3508 m3508_6(6, can1, tim7_1khz);
 //m3508::M3508 m3508_7(7, can1, tim7_1khz);
 //m3508::M3508 m3508_8(8, can1, tim7_1khz);
-vesc::Vesc vesc_1(101, can1, tim7_1khz);
+vesc::Vesc vesc_1(1, can1, tim7_1khz);
 
 timer::Timer timer_us(tim4_timer);// 用于获取时间戳
 

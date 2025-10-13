@@ -178,12 +178,12 @@
         <Ww>
           <count>4</count>
           <WinNumber>1</WinNumber>
-          <ItemText>vesc_1</ItemText>
+          <ItemText>target</ItemText>
         </Ww>
         <Ww>
           <count>5</count>
           <WinNumber>1</WinNumber>
-          <ItemText>target</ItemText>
+          <ItemText>vesc_1</ItemText>
         </Ww>
       </WatchWindow1>
       <Tracepoint>

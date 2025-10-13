@@ -1,0 +1,165 @@
+#include "RC_vesc.h"
+
+namespace vesc {
+    Vesc::Vesc(uint8_t id_, can::Can &can_, tim::Tim &tim_) : can::CanHandler(can_), tim::TimHandler(tim_), motor::Motor() {
+        // 初始化ID（1-255有效）
+        if (id_ <= 255 && id_ != 0) {
+            id = id_;
+        } else {
+            Error_Handler();
+        }
+        
+        // 注册CAN设备
+        CanHandler_Register();
+        
+      
+       
+    }
+    
+    void Vesc::CanHandler_Register() {
+        if (can->hd_num > 8) {  // 设备数量限制
+            Error_Handler();
+        }
+
+        can_frame_type = can::FRAME_EXT;  // 扩展帧
+        UpdateTxId();  // 初始化发送ID
+        
+      
+
+        // 注册CAN发送帧
+        if (can->tx_frame_num == 0) {  // 无现有帧
+            tx_frame_dx = 0;
+            can->tx_frame_num = 1;
+            can->tx_frame_list[tx_frame_dx].frame_type = can_frame_type;
+            can->tx_frame_list[tx_frame_dx].id = tx_id;
+            can->tx_frame_list[tx_frame_dx].dlc = 8;
+            can->tx_frame_list[tx_frame_dx].hd_num = 1;
+            can->tx_frame_list[tx_frame_dx].hd_dx[0] = hd_list_dx;
+        } else {  // 已有帧，新增帧
+            can->tx_frame_num++;
+            tx_frame_dx = can->tx_frame_num - 1;
+            can->tx_frame_list[tx_frame_dx].frame_type = can_frame_type;
+            can->tx_frame_list[tx_frame_dx].id = tx_id;
+            can->tx_frame_list[tx_frame_dx].dlc = 8;
+            can->tx_frame_list[tx_frame_dx].hd_num = 1;
+            can->tx_frame_list[tx_frame_dx].hd_dx[0] = hd_list_dx;
+        }
+    }
+
+    void Vesc::Set_Rpm(float target_rpm_) {
+        vesc_motor_mode = vesc_rpm;
+        target_rpm = target_rpm_;
+        UpdateTxId();  // 模式切换时更新发送ID
+        
+    }
+    //target_c=10A
+    void Vesc::Set_Current(float target_c_) {
+        vesc_motor_mode = vesc_current;
+        target_current = target_c_;
+        UpdateTxId();  // 模式切换时更新发送ID
+      
+    }
+
+    void Vesc::Set_Pos(float target_pos_)
+    {
+        vesc_motor_mode = vesc_pos;
+        target_pos = target_pos_;
+        UpdateTxId();  // 模式切换时更新发送ID
+    }
+    //duty=0.51(51%)
+    void Vesc::Set_Duty(float target_duty_)
+    {
+        vesc_motor_mode = vesc_duty;
+        target_duty = target_duty_;
+        UpdateTxId();  // 模式切换时更新发送ID
+    }
+
+    void Vesc::Tim_It_Process() {
+        /*
+        if (vesc_motor_mode == vesc_erpm) {  // 速度模式：通过PID计算目标电流
+            pid_spd.Update_Target(target_rpm);
+            pid_spd.Update_Real(rpm);  // 使用接收的实际转速
+            target_current = pid_spd.Pid_Calculate();  // 计算输出电流
+        }*/
+        // 电流模式：直接使用Set_Current设置的目标电流，无需PID计算
+    }
+
+    void Vesc::Can_Tx_Process() {
+        switch (vesc_motor_mode) {
+            case vesc_current: {
+                
+                send_current = (int32_t)(target_current * 1000);  
+                can->tx_frame_list[tx_frame_dx].data[0] = (send_current >> 24) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[1] = (send_current >> 16) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[2] = (send_current >> 8) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[3] = send_current & 0xFF;
+                break;
+            }
+            case vesc_duty: {
+                
+                send_duty = (int32_t)(target_duty * 100000);  
+                can->tx_frame_list[tx_frame_dx].data[0] = (send_duty >> 24) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[1] = (send_duty >> 16) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[2] = (send_duty >> 8) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[3] = send_duty & 0xFF;
+                break;
+            }
+            case vesc_rpm: {
+                // RPM值直接转换为32位整数
+                send_rpm = (int32_t)target_rpm;
+                // 填充CAN数据（大端模式）
+                can->tx_frame_list[tx_frame_dx].data[0] = (send_rpm >> 24) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[1] = (send_rpm >> 16) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[2] = (send_rpm >> 8) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[3] = send_rpm & 0xFF;
+                break;
+            }
+            case vesc_pos: {
+                // POS值直接转换为32位整数
+                send_pos = (int32_t)(target_pos*1000000);
+                // 填充CAN数据（大端模式）
+                can->tx_frame_list[tx_frame_dx].data[0] = (send_pos >> 24) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[1] = (send_pos >> 16) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[2] = (send_pos >> 8) & 0xFF;
+                can->tx_frame_list[tx_frame_dx].data[3] = send_pos & 0xFF;
+                break;
+            }
+            default:
+                break;
+        }
+        // 清空4-7字节
+        for (uint8_t i = 4; i < 8; i++) {
+            can->tx_frame_list[tx_frame_dx].data[i] = 0;
+        }
+        can->tx_frame_list[tx_frame_dx].dlc = 8;
+    }
+
+    void Vesc::Can_Rx_It_Process(uint8_t *rx_data) {
+       
+        rpm = (int32_t)((rx_data[0] << 24) | (rx_data[1] << 16) | (rx_data[2] << 8) | rx_data[3]);
+        current = ((int16_t)((rx_data[4] << 8) | rx_data[5])) * 0.01f;  // 修正缩放因子为0.01A/LSB
+    }
+	
+ // 辅助函数：更新CAN发送ID
+	void Vesc::UpdateTxId() {
+		
+            switch (vesc_motor_mode) {
+                case vesc_current:
+                    tx_id = (CAN_PACKET_SET_CURRENT << 8) | id;
+                    break;
+                case vesc_rpm:
+                    tx_id = (CAN_PACKET_SET_RPM << 8) | id;
+                    break;
+				case vesc_pos:
+                    tx_id = (CAN_PACKET_SET_POS << 8) | id;
+                    break;
+                case vesc_duty:
+                    tx_id = (CAN_PACKET_SET_DUTY << 8) | id;
+                    break;  
+                default:
+                    break;
+            }
+            // 更新CAN帧的ID
+            can->tx_frame_list[tx_frame_dx].id = tx_id;
+        }
+}
