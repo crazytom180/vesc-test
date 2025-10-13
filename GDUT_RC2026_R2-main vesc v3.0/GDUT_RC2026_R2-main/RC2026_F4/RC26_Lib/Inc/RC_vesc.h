@@ -28,12 +28,12 @@ namespace vesc
     public:
         Vesc(uint8_t id_, can::Can &can_, tim::Tim &tim_);
         virtual ~Vesc() {}
-        
+        void Set_Rpm(float target_rpm_);
+        void Set_Current(float target_c_);
         pid::Pid pid_spd, pid_pos;
         
     protected:
-        void Set_Rpm(float target_rpm_);
-        void Set_Current(float target_c_);
+        
         void CanHandler_Register() override;
         void Tim_It_Process() override;
         void Can_Tx_Process() override;
@@ -47,7 +47,7 @@ namespace vesc
         uint8_t id;float gear_ratio = 1;int motor_polse = 7;float erpm = 0;float current = 0;float target_current = 0;int32_t send_current = 0;int32_t send_rpm = 0;
         const uint8_t SET_CURRENT_CMD = 0x01; // VESC设置电流指令
         const uint8_t SET_ERPM_CMD = 0x03;    // VESC设置电机ERPM指令
-        const uint8_t GET_VALUES_CMD = 0x04;  // 请求状态反馈指令
+        const uint8_t GET_VALUES_CMD = 0x09;  // 请求状态反馈指令
         vesc_mode vesc_motor_mode = vesc_current; // VESC工作模式，默认电流模式
     };
 }

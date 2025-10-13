@@ -96,7 +96,7 @@ namespace vesc
        
         else if(vesc_motor_mode == vesc_current)
 		{
-			target_current = pid_spd.Pid_Calculate();
+			
 		}
     }
     
