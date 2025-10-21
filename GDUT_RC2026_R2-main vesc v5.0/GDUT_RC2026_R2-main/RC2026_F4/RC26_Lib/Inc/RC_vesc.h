@@ -1,3 +1,4 @@
+//位置式非常不建议使用
 #pragma once
 #include "RC_motor.h"
 #include "RC_can.h"
@@ -104,7 +105,7 @@ namespace vesc {
         float gear_ratio = 1;
         int motor_polse = 7;
         float erpm = 0;
-        float current = 0;
+		float duty = 0;
 		float target_duty = 0;
         int32_t send_current = 0;
         int32_t send_rpm = 0;

@@ -23,16 +23,14 @@ namespace vesc {
 
         can_frame_type = can::FRAME_EXT;  // 扩展帧
         UpdateTxId();  // 初始化发送ID
-        
-      
-
+        rx_id = (CAN_PACKET_STATUS<< 8) | id;
         // 注册CAN发送帧
         if (can->tx_frame_num == 0) {  // 无现有帧
             tx_frame_dx = 0;
             can->tx_frame_num = 1;
             can->tx_frame_list[tx_frame_dx].frame_type = can_frame_type;
             can->tx_frame_list[tx_frame_dx].id = tx_id;
-            can->tx_frame_list[tx_frame_dx].dlc = 8;
+            can->tx_frame_list[tx_frame_dx].dlc = 4;
             can->tx_frame_list[tx_frame_dx].hd_num = 1;
             can->tx_frame_list[tx_frame_dx].hd_dx[0] = hd_list_dx;
         } else {  // 已有帧，新增帧
@@ -40,7 +38,7 @@ namespace vesc {
             tx_frame_dx = can->tx_frame_num - 1;
             can->tx_frame_list[tx_frame_dx].frame_type = can_frame_type;
             can->tx_frame_list[tx_frame_dx].id = tx_id;
-            can->tx_frame_list[tx_frame_dx].dlc = 8;
+            can->tx_frame_list[tx_frame_dx].dlc = 4;
             can->tx_frame_list[tx_frame_dx].hd_num = 1;
             can->tx_frame_list[tx_frame_dx].hd_dx[0] = hd_list_dx;
         }
@@ -59,7 +57,7 @@ namespace vesc {
         UpdateTxId();  // 模式切换时更新发送ID
       
     }
-
+//位置式非常不建议使用
     void Vesc::Set_Pos(float target_pos_)
     {
         vesc_motor_mode = vesc_pos;
@@ -75,13 +73,7 @@ namespace vesc {
     }
 
     void Vesc::Tim_It_Process() {
-        /*
-        if (vesc_motor_mode == vesc_erpm) {  // 速度模式：通过PID计算目标电流
-            pid_spd.Update_Target(target_rpm);
-            pid_spd.Update_Real(rpm);  // 使用接收的实际转速
-            target_current = pid_spd.Pid_Calculate();  // 计算输出电流
-        }*/
-        // 电流模式：直接使用Set_Current设置的目标电流，无需PID计算
+       
     }
 
     void Vesc::Can_Tx_Process() {
@@ -127,17 +119,15 @@ namespace vesc {
             default:
                 break;
         }
-        // 清空4-7字节
-        for (uint8_t i = 4; i < 8; i++) {
-            can->tx_frame_list[tx_frame_dx].data[i] = 0;
-        }
-        can->tx_frame_list[tx_frame_dx].dlc = 8;
+       
+        can->tx_frame_list[tx_frame_dx].dlc = 4;
     }
 
     void Vesc::Can_Rx_It_Process(uint8_t *rx_data) {
        
         rpm = (int32_t)((rx_data[0] << 24) | (rx_data[1] << 16) | (rx_data[2] << 8) | rx_data[3]);
         current = ((int16_t)((rx_data[4] << 8) | rx_data[5])) * 0.01f;  // 修正缩放因子为0.01A/LSB
+		duty = ((int16_t)((rx_data[6] << 8) | rx_data[7]))/1000.0f;
     }
 	
  // 辅助函数：更新CAN发送ID
